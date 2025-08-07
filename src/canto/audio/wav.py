@@ -39,3 +39,26 @@ def read_wav(path: str | Path) -> tuple[np.ndarray, int]:
     if n_channels > 1:
         samples = samples.reshape(-1, n_channels).mean(axis=1)
     return samples, sample_rate
+
+
+def write_wav(path: str | Path, samples: np.ndarray, sample_rate: int) -> Path:
+    """Write a 1-D float array in ``[-1.0, 1.0]`` as a 16-bit PCM WAV file.
+
+    Values are clipped to the valid range before quantisation. Returns the
+    path that was written.
+    """
+    path = Path(path)
+    samples = np.asarray(samples, dtype=np.float32).reshape(-1)
+    clipped = np.clip(samples, -1.0, 1.0)
+    pcm = (clipped * 32767.0).astype(np.int16).tobytes()
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        with wave.open(str(path), "wb") as handle:
+            handle.setnchannels(1)
+            handle.setsampwidth(2)
+            handle.setframerate(int(sample_rate))
+            handle.writeframes(pcm)
+    except OSError as exc:
+        raise AudioIOError(f"could not write wav file: {path}") from exc
+    return path
