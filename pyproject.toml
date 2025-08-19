@@ -40,6 +40,9 @@ Homepage = "https://github.com/naivestud/canto"
 Repository = "https://github.com/naivestud/canto"
 Issues = "https://github.com/naivestud/canto/issues"
 
+[project.scripts]
+canto = "canto.cli:main"
+
 [tool.setuptools]
 package-dir = {"" = "src"}
 
