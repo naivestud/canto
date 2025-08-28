@@ -60,3 +60,53 @@ class VectorQuantizer(nn.Module):
 
         out = self.out_proj(quantized_st.transpose(1, 2))
         return out, indices, loss
+
+
+class ResidualVectorQuantizer(nn.Module):
+    """A stack of :class:`VectorQuantizer` applied to successive residuals.
+
+    Each level quantises what the previous levels could not represent, so more
+    levels trade bandwidth for fidelity. Indices come back as
+    ``(B, num_quantizers, T)``.
+    """
+
+    def __init__(self, dim: int, codebook_size: int, codebook_dim: int, num_quantizers: int) -> None:
+        super().__init__()
+        self.num_quantizers = num_quantizers
+        self.quantizers = nn.ModuleList(
+            VectorQuantizer(dim, codebook_size, codebook_dim) for _ in range(num_quantizers)
+        )
+
+    def forward(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        """Return ``(quantized, indices, loss)`` for latents ``(B, dim, T)``."""
+        residual = x
+        quantized_sum = torch.zeros_like(x)
+        total_loss = x.new_zeros(())
+        all_indices = []
+        for quantizer in self.quantizers:
+            quantized, indices, loss = quantizer(residual)
+            residual = residual - quantized
+            quantized_sum = quantized_sum + quantized
+            total_loss = total_loss + loss
+            all_indices.append(indices)
+        return quantized_sum, torch.stack(all_indices, dim=1), total_loss
+
+    def encode(self, x: torch.Tensor, num_quantizers: int | None = None) -> torch.Tensor:
+        """Encode latents to indices ``(B, Q, T)`` using the first ``Q`` levels."""
+        n = self.num_quantizers if num_quantizers is None else num_quantizers
+        residual = x
+        all_indices = []
+        for quantizer in self.quantizers[:n]:
+            indices = quantizer.encode(residual)
+            residual = residual - quantizer.decode_indices(indices)
+            all_indices.append(indices)
+        return torch.stack(all_indices, dim=1)
+
+    def decode_indices(self, indices: torch.Tensor) -> torch.Tensor:
+        """Decode indices ``(B, Q, T)`` back into latents ``(B, dim, T)``."""
+        quantized_sum = None
+        for level, quantizer in enumerate(self.quantizers[: indices.shape[1]]):
+            quantized = quantizer.decode_indices(indices[:, level, :])
+            quantized_sum = quantized if quantized_sum is None else quantized_sum + quantized
+        assert quantized_sum is not None
+        return quantized_sum
