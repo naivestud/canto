@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import torch
 from torch import nn
+from torch.nn import functional as F
 
 from .layers import ResidualConvBlock, wn_conv1d
 
@@ -38,5 +39,15 @@ class Encoder(nn.Module):
         self.net = nn.Sequential(*layers)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """Encode ``x`` of shape ``(B, 1, T)`` to latents ``(B, dim, T')``."""
+        """Encode ``x`` of shape ``(B, 1, T)`` to latents ``(B, dim, T')``.
+
+        The input is right-padded with zeros so its length is a multiple of the
+        total stride, which keeps the frame count well defined for any ``T``.
+        """
+        hop = 1
+        for stride in self.strides:
+            hop *= stride
+        pad = (hop - x.shape[-1] % hop) % hop
+        if pad:
+            x = F.pad(x, (0, pad))
         return self.net(x)
