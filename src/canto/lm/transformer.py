@@ -23,3 +23,19 @@ class TransformerBlock(nn.Module):
         x = x + self.attn(self.ln1(x))
         x = x + self.ff(self.ln2(x))
         return x
+
+
+class TransformerBackbone(nn.Module):
+    """A stack of :class:`TransformerBlock` followed by a final layer norm."""
+
+    def __init__(self, dim: int, num_layers: int, num_heads: int, dropout: float = 0.0) -> None:
+        super().__init__()
+        self.blocks = nn.ModuleList(
+            TransformerBlock(dim, num_heads, dropout) for _ in range(num_layers)
+        )
+        self.ln_f = nn.LayerNorm(dim)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        for block in self.blocks:
+            x = block(x)
+        return self.ln_f(x)
