@@ -94,3 +94,50 @@ class AcousticTokenLM(nn.Module):
         x = self.drop(x)
         x = self.backbone(x)
         return self.head(x)
+
+    @torch.no_grad()
+    def generate(
+        self,
+        text_ids: torch.Tensor,
+        prompt_codes: torch.Tensor | None = None,
+        max_new_tokens: int = 200,
+        sampler=None,
+    ) -> torch.Tensor:
+        """Sample acoustic codes autoregressively after the text and prompt.
+
+        ``sampler`` maps a ``(B, vocab)`` logits tensor to ``(B,)`` token ids;
+        it defaults to greedy decoding. Returns the newly generated codec codes
+        (prompt excluded) as a ``(B, L)`` long tensor. Generation stops for a
+        sequence when it emits ``audio_eos``.
+        """
+        from .sampling import greedy_sample
+
+        if sampler is None:
+            sampler = greedy_sample
+
+        was_training = self.training
+        self.eval()
+        try:
+            device = text_ids.device
+            ids = self.pack_inputs(text_ids, prompt_codes, None)
+            generated: list[torch.Tensor] = []
+
+            for _ in range(max_new_tokens):
+                context = ids[:, -self.config.context :]
+                x = self.token_embedding(context)
+                x = self.pos_encoding(x)
+                logits = self.head(self.backbone(x))[:, -1, :]
+                next_id = sampler(logits)
+                # Stop as soon as any sequence emits the end-of-audio marker.
+                if bool((next_id == self.audio_eos_id).any()):
+                    break
+                generated.append(next_id)
+                ids = torch.cat([ids, next_id[:, None]], dim=1)
+
+            if not generated:
+                return torch.zeros(ids.shape[0], 0, dtype=torch.long, device=device)
+            stacked = torch.stack(generated, dim=1)
+            return self.lm_to_audio(stacked)
+        finally:
+            if was_training:
+                self.train()
