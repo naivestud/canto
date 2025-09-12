@@ -91,3 +91,14 @@ class Vocoder(nn.Module):
         x = self.upsample(x)
         x = self.refine(x)
         return self.head(x)
+
+    @classmethod
+    def from_config(cls, config, num_tokens: int) -> Vocoder:
+        """Build a vocoder from a :class:`VocoderConfig` and a token count."""
+        return cls(
+            num_tokens=num_tokens,
+            embed_dim=config.embed_dim,
+            channels=config.channels,
+            upsample_rates=config.upsample_rates,
+            refinements=config.refinements,
+        )
