@@ -18,6 +18,8 @@ from .errors import CheckpointError
 
 CONFIG_NAME = "config.json"
 STATE_NAME = "state.pt"
+# Bumped if the on-disk layout ever changes in a breaking way.
+FORMAT = "canto/v1"
 
 
 def save_checkpoint(
@@ -29,7 +31,8 @@ def save_checkpoint(
     directory = Path(directory)
     directory.mkdir(parents=True, exist_ok=True)
 
-    (directory / CONFIG_NAME).write_text(json.dumps(asdict(config), indent=2))
+    payload = {"format": FORMAT, "config": asdict(config)}
+    (directory / CONFIG_NAME).write_text(json.dumps(payload, indent=2))
     state = {name: module.state_dict() for name, module in models.items()}
     torch.save(state, directory / STATE_NAME)
     return directory
@@ -63,8 +66,12 @@ def load_checkpoint(directory: str | Path) -> tuple[CantoConfig, dict[str, torch
         raise CheckpointError(f"not a checkpoint directory: {directory}")
 
     data = json.loads(config_path.read_text())
+    if data.get("format") != FORMAT:
+        raise CheckpointError(
+            f"checkpoint format {data.get('format')!r} does not match {FORMAT!r}"
+        )
     try:
-        config = _config_from_dict(data)
+        config = _config_from_dict(data["config"])
     except (KeyError, TypeError) as exc:
         raise CheckpointError(f"malformed config in {config_path}") from exc
 
