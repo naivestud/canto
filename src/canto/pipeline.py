@@ -58,3 +58,35 @@ class CantoTTS:
     def decode_codes(self, codes: np.ndarray) -> np.ndarray:
         """Render codes back into a waveform with the codec decoder."""
         return self.tokenizer.decode(codes)
+
+    def synthesize(
+        self,
+        text: str,
+        prompt_wav: np.ndarray | None = None,
+        max_frames: int = 400,
+        seed: int | None = None,
+    ) -> SynthesisResult:
+        """Synthesise speech for ``text``, optionally cloning ``prompt_wav``.
+
+        ``prompt_wav`` is a short reference waveform whose first-codebook codes
+        prime the language model so the output follows its voice.
+        """
+        if seed is not None:
+            torch.manual_seed(seed)
+
+        text_ids = self.frontend.to_ids(text)
+        text_tensor = torch.tensor([text_ids], dtype=torch.long)
+
+        prompt_codes = None
+        if prompt_wav is not None:
+            codes = self.tokenizer.encode(prompt_wav)[0]
+            prompt_codes = torch.tensor(codes, dtype=torch.long)[None, :]
+
+        with torch.no_grad():
+            codes = self.lm.generate(text_tensor, prompt_codes, max_new_tokens=max_frames)
+            if codes.shape[1] == 0:
+                # Fall back to a single silent frame so callers always get audio.
+                codes = torch.zeros(1, 1, dtype=torch.long)
+            wav = self.vocoder(codes)
+
+        return SynthesisResult(wav=wav[0, 0].cpu().numpy(), sample_rate=self.sample_rate)
