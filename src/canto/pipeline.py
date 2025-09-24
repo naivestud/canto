@@ -98,3 +98,13 @@ class CantoTTS:
             wav = self.vocoder(codes)
 
         return SynthesisResult(wav=wav[0, 0].cpu().numpy(), sample_rate=self.sample_rate)
+
+    def clone_voice(
+        self,
+        prompt_wav: np.ndarray,
+        text: str,
+        max_frames: int = 400,
+        seed: int | None = None,
+    ) -> SynthesisResult:
+        """Synthesise ``text`` in the voice of ``prompt_wav`` (zero-shot)."""
+        return self.synthesize(text, prompt_wav=prompt_wav, max_frames=max_frames, seed=seed)
