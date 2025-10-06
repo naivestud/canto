@@ -1,4 +1,4 @@
-from canto.text import GraphemeVocab
+from canto.text import GraphemeVocab, TextFrontend
 
 
 def test_roundtrip_ascii():
@@ -32,3 +32,22 @@ def test_decode_drops_specials():
 def test_size_covers_ascii():
     vocab = GraphemeVocab()
     assert vocab.size == 4 + 95
+
+
+def test_frontend_lowercases_and_collapses_whitespace():
+    frontend = TextFrontend()
+    assert frontend.normalize("  Hello   WORLD ") == "hello world"
+
+
+def test_frontend_expands_digits():
+    frontend = TextFrontend()
+    assert frontend.normalize("call 911") == "call nineoneone"
+
+
+def test_frontend_to_ids_frames_with_bos_eos():
+    frontend = TextFrontend()
+    ids = frontend.to_ids("hi")
+    vocab = frontend.vocab
+    assert ids[0] == vocab.bos_id
+    assert ids[-1] == vocab.eos_id
+    assert vocab.decode(ids) == "hi"
