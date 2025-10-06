@@ -6,6 +6,21 @@ import re
 
 from .vocab import GraphemeVocab
 
+# A deliberately small fallback so digits do not reach the model as raw
+# characters; a real deployment would swap in a proper G2P here.
+_DIGITS = {
+    "0": "zero",
+    "1": "one",
+    "2": "two",
+    "3": "three",
+    "4": "four",
+    "5": "five",
+    "6": "six",
+    "7": "seven",
+    "8": "eight",
+    "9": "nine",
+}
+
 
 class TextFrontend:
     """Normalises free text and turns it into grapheme ids.
@@ -20,6 +35,7 @@ class TextFrontend:
 
     def normalize(self, text: str) -> str:
         text = text.lower()
+        text = "".join(_DIGITS.get(char, char) for char in text)
         text = re.sub(r"\s+", " ", text)
         return text.strip()
 
