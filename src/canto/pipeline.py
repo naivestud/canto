@@ -9,6 +9,7 @@ import torch
 
 from .codec import AudioCodec
 from .config import CantoConfig
+from .errors import EmptyTextError
 from .lm.model import AcousticTokenLM
 from .text import TextFrontend
 from .tokens import AudioTokenizer
@@ -91,6 +92,9 @@ class CantoTTS:
         """
         if seed is not None:
             torch.manual_seed(seed)
+
+        if not self.frontend.normalize(text):
+            raise EmptyTextError("cannot synthesise empty text")
 
         text_ids = self.frontend.to_ids(text)
         text_tensor = torch.tensor([text_ids], dtype=torch.long)
