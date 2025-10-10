@@ -28,3 +28,53 @@ def top_k_sample(
     filtered = top_k_filter(logits, k)
     probs = torch.softmax(filtered, dim=-1)
     return torch.multinomial(probs, num_samples=1, generator=generator).squeeze(-1)
+
+
+def top_p_filter(logits: torch.Tensor, p: float) -> torch.Tensor:
+    """Keep the smallest set of tokens whose cumulative probability is >= ``p``."""
+    sorted_logits, sorted_indices = torch.sort(logits, descending=True, dim=-1)
+    probs = torch.softmax(sorted_logits, dim=-1)
+    cumulative = torch.cumsum(probs, dim=-1)
+    # Shift right so the token that crosses the threshold is kept.
+    remove = cumulative - probs >= p
+    sorted_logits = sorted_logits.masked_fill(remove, float("-inf"))
+    return sorted_logits.scatter(-1, sorted_indices, sorted_logits)
+
+
+def apply_temperature(logits: torch.Tensor, temperature: float) -> torch.Tensor:
+    """Sharpen (``< 1``) or flatten (``> 1``) the distribution."""
+    if temperature <= 0:
+        raise ValueError("temperature must be positive; use greedy_sample for argmax")
+    return logits / temperature
+
+
+def apply_repetition_penalty(
+    logits: torch.Tensor, previous_tokens: torch.Tensor, penalty: float
+) -> torch.Tensor:
+    """Down-weight tokens that already appear in ``previous_tokens``.
+
+    ``penalty`` of 1.0 disables the effect; larger values discourage repeats.
+    """
+    if penalty == 1.0 or previous_tokens.numel() == 0:
+        return logits
+    logits = logits.clone()
+    gathered = torch.gather(logits, -1, previous_tokens)
+    gathered = torch.where(gathered > 0, gathered / penalty, gathered * penalty)
+    return logits.scatter(-1, previous_tokens, gathered)
+
+
+def sample(
+    logits: torch.Tensor,
+    temperature: float = 1.0,
+    top_k: int | None = None,
+    top_p: float | None = None,
+    generator: torch.Generator | None = None,
+) -> torch.Tensor:
+    """One-stop sampling with temperature and top-k / top-p truncation."""
+    logits = apply_temperature(logits, temperature)
+    if top_k is not None:
+        logits = top_k_filter(logits, top_k)
+    if top_p is not None:
+        logits = top_p_filter(logits, top_p)
+    probs = torch.softmax(logits, dim=-1)
+    return torch.multinomial(probs, num_samples=1, generator=generator).squeeze(-1)
