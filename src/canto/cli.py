@@ -26,6 +26,20 @@ def cmd_synthesize(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_clone(args: argparse.Namespace) -> int:
+    from .audio import read_wav
+    from .pipeline import CantoTTS
+
+    prompt, sample_rate = read_wav(args.prompt)
+    tts = CantoTTS()
+    if sample_rate != tts.sample_rate:
+        print(f"warning: prompt rate {sample_rate} != model rate {tts.sample_rate}", file=sys.stderr)
+    result = tts.clone_voice(prompt, args.text, seed=args.seed, max_frames=args.max_frames)
+    write_wav(args.out, result.wav, result.sample_rate)
+    print(f"wrote {args.out} ({result.duration:.2f}s, {result.num_frames} frames)")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="canto",
@@ -37,6 +51,10 @@ def build_parser() -> argparse.ArgumentParser:
 
     synth = sub.add_parser("synthesize", help="synthesise speech from text")
     _add_synthesis_options(synth)
+
+    clone = sub.add_parser("clone", help="synthesise speech in the voice of a prompt")
+    clone.add_argument("--prompt", required=True, help="reference wav to clone")
+    _add_synthesis_options(clone)
 
     return parser
 
@@ -50,6 +68,8 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.command == "synthesize":
         return cmd_synthesize(args)
+    if args.command == "clone":
+        return cmd_clone(args)
 
     parser.print_help()
     return 0
