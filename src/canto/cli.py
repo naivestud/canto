@@ -7,6 +7,7 @@ import sys
 
 from . import __version__
 from .audio import write_wav
+from .errors import CantoError
 
 
 def _add_synthesis_options(parser: argparse.ArgumentParser) -> None:
@@ -106,17 +107,22 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "version":
         print(__version__)
         return 0
-    if args.command == "synthesize":
-        return cmd_synthesize(args)
-    if args.command == "clone":
-        return cmd_clone(args)
-    if args.command == "encode":
-        return cmd_encode(args)
-    if args.command == "decode":
-        return cmd_decode(args)
 
-    parser.print_help()
-    return 0
+    handlers = {
+        "synthesize": cmd_synthesize,
+        "clone": cmd_clone,
+        "encode": cmd_encode,
+        "decode": cmd_decode,
+    }
+    handler = handlers.get(args.command)
+    if handler is None:
+        parser.print_help()
+        return 0
+    try:
+        return handler(args)
+    except CantoError as exc:
+        print(f"canto: {exc}", file=sys.stderr)
+        return 2
 
 
 if __name__ == "__main__":
