@@ -73,3 +73,18 @@ def test_missing_prompt_returns_nonzero(tmp_path):
         ]
     )
     assert rc == 2
+
+
+def test_sample_rate_mismatch_returns_error(tmp_path):
+    rc = main(
+        [
+            "synthesize",
+            "--text",
+            "hi",
+            "--out",
+            str(tmp_path / "o.wav"),
+            "--sample-rate",
+            "16000",
+        ]
+    )
+    assert rc == 2
