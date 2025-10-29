@@ -25,3 +25,11 @@ Encode a WAV to discrete tokens and decode it back:
 ```bash
 python examples/encode_decode.py --wav input.wav --out reconstruction.wav
 ```
+
+## Notes
+
+- All scripts accept `--seed` to make runs reproducible.
+- Synthesis length is capped with `--max-frames` (one frame is one codec step,
+  8 samples at the tiny preset), so short caps keep these demos fast.
+- `voice_clone.py` works best with a clean prompt of roughly two to five
+  seconds at the model sample rate (24 kHz).
