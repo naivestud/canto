@@ -50,3 +50,15 @@ def test_output_is_bounded():
     wav = torch.randn(1, 1, 8 * 20)
     recon = codec.decode_indices(codec.encode(wav))
     assert recon.abs().max() <= 1.0
+
+
+def test_odd_length_roundtrip():
+    # Lengths that are not clean multiples of the hop must still encode.
+    codec = tiny_codec()
+    for length in (8 * 20 + 1, 8 * 20 + 5, 8 * 21 - 3):
+        wav = torch.randn(1, 1, length)
+        indices = codec.encode(wav)
+        recon = codec.decode_indices(indices)
+        assert recon.shape[1] == 1
+        # Reconstruction stays within a hop of the padded input length.
+        assert abs(recon.shape[-1] - length) <= 8
