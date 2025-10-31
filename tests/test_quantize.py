@@ -19,7 +19,7 @@ def test_vector_quantizer_forward_shapes():
     assert out.shape == x.shape
     assert indices.shape == (2, 10)
     assert loss.ndim == 0
-    assert float(loss) >= 0.0
+    assert float(loss.detach()) >= 0.0
 
 
 def test_rvq_encode_decode_roundtrip_consistent():
@@ -37,3 +37,13 @@ def test_rvq_forward_matches_levels():
     x = torch.randn(1, 8, 6)
     _, indices, _ = rvq(x)
     assert indices.shape == (1, 2, 6)
+
+
+def test_codebook_utilization_is_not_degenerate():
+    # Random data through a fresh quantiser should use more than one code;
+    # collapse to a single code would indicate a broken distance computation.
+    torch.manual_seed(0)
+    vq = VectorQuantizer(dim=16, codebook_size=64, codebook_dim=8)
+    x = torch.randn(4, 16, 32)
+    indices = vq.encode(x)
+    assert indices.unique().numel() > 1
