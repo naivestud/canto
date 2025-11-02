@@ -36,3 +36,12 @@ def test_frames_reference_original_samples():
     # Each frame start aligns with a hop multiple of the original signal.
     np.testing.assert_allclose(frames[1, 0], 100.0)
     np.testing.assert_allclose(frames[2, 0], 200.0)
+
+
+def test_num_frames_exact_hop_multiple():
+    # Regression: an exact multiple of the hop used to under-count by one.
+    n_samples, hop = 1600, 160
+    x = np.zeros(n_samples, dtype=np.float32)
+    frames = frame_signal(x, frame_length=400, hop_length=hop, center=True)
+    assert num_frames(n_samples, 400, hop, center=True) == frames.shape[0]
+    assert frames.shape[0] == 1 + n_samples // hop
