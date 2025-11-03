@@ -39,3 +39,20 @@ def test_missing_directory_raises(tmp_path):
     except CheckpointError:
         return
     raise AssertionError("expected CheckpointError")
+
+
+def test_missing_config_key_raises(tmp_path):
+    import json
+
+    from canto.errors import CheckpointError
+
+    directory = tmp_path / "bad"
+    directory.mkdir()
+    # Valid format marker but a config section that is missing required keys.
+    (directory / "config.json").write_text(json.dumps({"format": "canto/v1", "config": {}}))
+    (directory / "state.pt").write_bytes(b"placeholder")
+    try:
+        load_checkpoint(directory)
+    except CheckpointError:
+        return
+    raise AssertionError("expected CheckpointError for missing config keys")
