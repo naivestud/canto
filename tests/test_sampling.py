@@ -1,6 +1,12 @@
 import torch
 
-from canto.lm.sampling import greedy_sample, top_k_filter, top_k_sample
+from canto.lm.sampling import (
+    greedy_sample,
+    sample,
+    top_k_filter,
+    top_k_sample,
+    top_p_filter,
+)
 
 
 def test_greedy_picks_argmax():
@@ -33,3 +39,29 @@ def test_top_k_respects_k():
     g = torch.Generator().manual_seed(7)
     sampled = top_k_sample(logits, 1, generator=g)
     assert sampled.tolist() == greedy_sample(logits).tolist()
+
+
+def test_top_p_filter_keeps_nucleus():
+    logits = torch.tensor([[1.0, 5.0, 3.0, 2.0]])
+    filtered = top_p_filter(logits, 0.9)
+    # The dominant token must survive; at least one token is always kept.
+    assert filtered[0, 1] == 5.0
+    assert (filtered > float("-inf")).any()
+
+
+def test_sample_with_temperature_is_valid():
+    logits = torch.randn(4, 30)
+    g = torch.Generator().manual_seed(5)
+    ids = sample(logits, temperature=0.8, top_k=10, generator=g)
+    assert ids.shape == (4,)
+    assert ids.min() >= 0
+    assert ids.max() < 30
+
+
+def test_sample_top_p_path_deterministic():
+    logits = torch.randn(2, 25)
+    g1 = torch.Generator().manual_seed(9)
+    g2 = torch.Generator().manual_seed(9)
+    a = sample(logits, top_p=0.9, generator=g1)
+    b = sample(logits, top_p=0.9, generator=g2)
+    assert a.tolist() == b.tolist()
