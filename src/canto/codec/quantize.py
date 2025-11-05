@@ -5,6 +5,8 @@ from __future__ import annotations
 import torch
 from torch import nn
 
+from .losses import quantization_loss
+
 
 class VectorQuantizer(nn.Module):
     """A single codebook mapping latent vectors to discrete codes.
@@ -54,9 +56,7 @@ class VectorQuantizer(nn.Module):
         # Straight-through: copy gradients of the quantised signal to z.
         quantized_st = z + (quantized - z).detach()
 
-        commitment = torch.mean((quantized.detach() - z) ** 2)
-        codebook_loss = torch.mean((quantized - z.detach()) ** 2)
-        loss = commitment + codebook_loss
+        loss = quantization_loss(quantized, z)
 
         out = self.out_proj(quantized_st.transpose(1, 2))
         return out, indices, loss
