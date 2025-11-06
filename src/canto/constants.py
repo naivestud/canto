@@ -10,6 +10,3 @@ SAMPLE_RATE = 24_000
 # per second; with the default strides this is 24000 / 320 = 75 fps.
 DEFAULT_CODEBOOK_SIZE = 1024
 DEFAULT_NUM_QUANTIZERS = 1
-
-# Canonical number of mel bands used by analysis utilities.
-DEFAULT_N_MELS = 80
