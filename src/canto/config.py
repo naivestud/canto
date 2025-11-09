@@ -9,7 +9,7 @@ from .constants import DEFAULT_CODEBOOK_SIZE, DEFAULT_NUM_QUANTIZERS, SAMPLE_RAT
 from .errors import ConfigError
 
 
-@dataclass
+@dataclass(kw_only=True)
 class CodecConfig:
     """Geometry of the neural audio codec."""
 
@@ -40,7 +40,7 @@ class CodecConfig:
             raise ConfigError("codebook_size must be >= 2")
 
 
-@dataclass
+@dataclass(kw_only=True)
 class LMConfig:
     """Geometry of the acoustic-token language model."""
 
@@ -60,7 +60,7 @@ class LMConfig:
             raise ConfigError("context must be >= 2")
 
 
-@dataclass
+@dataclass(kw_only=True)
 class VocoderConfig:
     """Geometry of the token-to-waveform vocoder."""
 
@@ -80,7 +80,7 @@ class VocoderConfig:
             raise ConfigError("vocoder upsample_factor must be >= 1")
 
 
-@dataclass
+@dataclass(kw_only=True)
 class CantoConfig:
     """Top-level configuration bundling every component."""
 
