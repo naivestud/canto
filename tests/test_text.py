@@ -1,4 +1,5 @@
-from canto.text import GraphemeVocab, TextFrontend
+from canto.text import GraphemeVocab
+from canto.text.normalize import TextFrontend
 
 
 def test_roundtrip_ascii():
