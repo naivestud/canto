@@ -8,6 +8,11 @@ import torch
 from torch import nn
 
 
+def causal_mask(length: int, device: torch.device) -> torch.Tensor:
+    """Upper-triangular boolean mask; True marks positions that must not attend."""
+    return torch.triu(torch.ones(length, length, dtype=torch.bool, device=device), diagonal=1)
+
+
 class CausalSelfAttention(nn.Module):
     """Standard multi-head attention restricted to past positions.
 
@@ -34,10 +39,7 @@ class CausalSelfAttention(nn.Module):
         q, k, v = qkv.permute(2, 0, 3, 1, 4).unbind(0)
 
         scores = (q @ k.transpose(-2, -1)) / math.sqrt(self.head_dim)
-        causal_mask = torch.triu(
-            torch.ones(length, length, dtype=torch.bool, device=x.device), diagonal=1
-        )
-        scores = scores.masked_fill(causal_mask, float("-inf"))
+        scores = scores.masked_fill(causal_mask(length, x.device), float("-inf"))
         if key_padding_mask is not None:
             # key_padding_mask: (B, length), True where the position is padding.
             pad_mask = key_padding_mask[:, None, None, :]
