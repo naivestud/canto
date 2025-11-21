@@ -25,11 +25,15 @@ Provide a few seconds of reference audio; the model continues in that voice.
 import canto
 from canto.audio import read_wav, write_wav
 
-prompt, _ = read_wav("reference.wav")
+prompt, prompt_rate = read_wav("reference.wav")
 tts = canto.CantoTTS()
 result = tts.clone_voice(prompt, "speak like me", seed=1)
 write_wav("clone.wav", result.wav, result.sample_rate)
 ```
+
+The prompt should be at the model sample rate (24 kHz). `read_wav` returns the
+file's rate as `prompt_rate` so you can check it and resample upstream if
+needed.
 
 ## Tokenize and reconstruct audio
 
