@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2026-08-08
+
+### Added
+
+- Codec bandwidth control: `AudioCodec.encode(num_quantizers=...)` and
+  `AudioCodec.bandwidth_kbps()`.
+- CLI `--sample-rate` validation flag.
+
+### Changed
+
+- Config dataclasses are keyword-only.
+- Quantisation losses moved to `canto.codec.losses`.
+- Checkpoints record a format marker and reject mismatches on load.
+
+### Fixed
+
+- Frame-count off-by-one for signals that are exact multiples of the hop.
+- Generation restricted to the acoustic-token range (no out-of-range codes).
+
 ## [0.2.0] - 2026-08-08
 
 ### Added
