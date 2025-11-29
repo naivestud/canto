@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import cast
+
 import torch
 from torch import nn
 
@@ -70,7 +72,9 @@ class ResidualVectorQuantizer(nn.Module):
     ``(B, num_quantizers, T)``.
     """
 
-    def __init__(self, dim: int, codebook_size: int, codebook_dim: int, num_quantizers: int) -> None:
+    def __init__(
+        self, dim: int, codebook_size: int, codebook_dim: int, num_quantizers: int
+    ) -> None:
         super().__init__()
         self.num_quantizers = num_quantizers
         self.quantizers = nn.ModuleList(
@@ -97,8 +101,9 @@ class ResidualVectorQuantizer(nn.Module):
         residual = x
         all_indices = []
         for quantizer in self.quantizers[:n]:
-            indices = quantizer.encode(residual)
-            residual = residual - quantizer.decode_indices(indices)
+            vq = cast(VectorQuantizer, quantizer)
+            indices = vq.encode(residual)
+            residual = residual - vq.decode_indices(indices)
             all_indices.append(indices)
         return torch.stack(all_indices, dim=1)
 
@@ -106,7 +111,8 @@ class ResidualVectorQuantizer(nn.Module):
         """Decode indices ``(B, Q, T)`` back into latents ``(B, dim, T)``."""
         quantized_sum = None
         for level, quantizer in enumerate(self.quantizers[: indices.shape[1]]):
-            quantized = quantizer.decode_indices(indices[:, level, :])
+            vq = cast(VectorQuantizer, quantizer)
+            quantized = vq.decode_indices(indices[:, level, :])
             quantized_sum = quantized if quantized_sum is None else quantized_sum + quantized
         assert quantized_sum is not None
         return quantized_sum
