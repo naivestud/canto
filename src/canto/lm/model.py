@@ -70,9 +70,7 @@ class AcousticTokenLM(nn.Module):
             parts.append(self.audio_to_lm(prompt_codes))
         if target_codes is not None:
             parts.append(self.audio_to_lm(target_codes))
-            audio_eos = torch.full(
-                (batch, 1), self.audio_eos_id, dtype=torch.long, device=device
-            )
+            audio_eos = torch.full((batch, 1), self.audio_eos_id, dtype=torch.long, device=device)
             parts.append(audio_eos)
         return torch.cat(parts, dim=1)
 

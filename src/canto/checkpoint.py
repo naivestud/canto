@@ -54,7 +54,9 @@ def _config_from_dict(data: dict) -> CantoConfig:
             "refinements": tuple(data["vocoder"]["refinements"]),
         }
     )
-    return CantoConfig(sample_rate=data.get("sample_rate", 24_000), codec=codec, lm=lm, vocoder=vocoder)
+    return CantoConfig(
+        sample_rate=data.get("sample_rate", 24_000), codec=codec, lm=lm, vocoder=vocoder
+    )
 
 
 def load_checkpoint(directory: str | Path) -> tuple[CantoConfig, dict[str, torch.Tensor]]:
@@ -67,9 +69,7 @@ def load_checkpoint(directory: str | Path) -> tuple[CantoConfig, dict[str, torch
 
     data = json.loads(config_path.read_text())
     if data.get("format") != FORMAT:
-        raise CheckpointError(
-            f"checkpoint format {data.get('format')!r} does not match {FORMAT!r}"
-        )
+        raise CheckpointError(f"checkpoint format {data.get('format')!r} does not match {FORMAT!r}")
     try:
         config = _config_from_dict(data["config"])
     except (KeyError, TypeError) as exc:

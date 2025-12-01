@@ -1,8 +1,5 @@
 from pathlib import Path
 
-import numpy as np
-import pytest
-
 from canto.cli import main
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -25,7 +22,9 @@ def test_encode_decode_roundtrip(tmp_path):
 
 def test_synthesize_writes_wav(tmp_path):
     out = tmp_path / "out.wav"
-    rc = main(["synthesize", "--text", "hello", "--out", str(out), "--seed", "0", "--max-frames", "6"])
+    rc = main(
+        ["synthesize", "--text", "hello", "--out", str(out), "--seed", "0", "--max-frames", "6"]
+    )
     assert rc == 0
     assert out.exists()
 
@@ -41,8 +40,10 @@ def test_clone_writes_wav(tmp_path):
             "hi",
             "--out",
             str(out),
-            "--seed", "0",
-            "--max-frames", "6",
+            "--seed",
+            "0",
+            "--max-frames",
+            "6",
         ]
     )
     assert rc == 0
