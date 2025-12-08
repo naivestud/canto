@@ -4,22 +4,8 @@ from __future__ import annotations
 
 import re
 
+from .numbers import spell_digits
 from .vocab import GraphemeVocab
-
-# A deliberately small fallback so digits do not reach the model as raw
-# characters; a real deployment would swap in a proper G2P here.
-_DIGITS = {
-    "0": "zero",
-    "1": "one",
-    "2": "two",
-    "3": "three",
-    "4": "four",
-    "5": "five",
-    "6": "six",
-    "7": "seven",
-    "8": "eight",
-    "9": "nine",
-}
 
 
 class TextFrontend:
@@ -35,7 +21,9 @@ class TextFrontend:
 
     def normalize(self, text: str) -> str:
         text = text.lower()
-        text = "".join(_DIGITS.get(char, char) for char in text)
+        # Spell digits out so they never reach the model as raw characters;
+        # a real deployment would swap in a proper G2P here.
+        text = spell_digits(text)
         text = re.sub(r"\s+", " ", text)
         return text.strip()
 
