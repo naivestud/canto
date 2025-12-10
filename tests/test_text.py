@@ -1,3 +1,5 @@
+import pytest
+
 from canto.text import GraphemeVocab
 from canto.text.normalize import TextFrontend
 
@@ -52,3 +54,24 @@ def test_frontend_to_ids_frames_with_bos_eos():
     assert ids[0] == vocab.bos_id
     assert ids[-1] == vocab.eos_id
     assert vocab.decode(ids) == "hi"
+
+
+def test_frontend_cardinal_style_reads_numbers():
+    frontend = TextFrontend(number_style="cardinal")
+    assert frontend.normalize("12 cats") == "twelve cats"
+    assert frontend.normalize("room 911") == "room nine hundred eleven"
+
+
+def test_frontend_cardinal_style_spells_long_runs():
+    # Digit runs longer than any plausible quantity are spelled instead.
+    frontend = TextFrontend(number_style="cardinal")
+    assert frontend.normalize("5551234") == "fivefivefiveonetwothreefour"
+
+
+def test_frontend_default_style_spells_digits():
+    assert TextFrontend().normalize("12 cats") == "onetwo cats"
+
+
+def test_frontend_rejects_unknown_number_style():
+    with pytest.raises(ValueError):
+        TextFrontend(number_style="ordinal")
