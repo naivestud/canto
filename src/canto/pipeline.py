@@ -12,6 +12,7 @@ from .config import CantoConfig
 from .errors import EmptyTextError
 from .lm.model import AcousticTokenLM
 from .text import TextFrontend
+from .text.chunk import chunk_text
 from .tokens import AudioTokenizer
 from .vocoder import Vocoder
 
@@ -139,7 +140,7 @@ class CantoTTS:
         Splitting keeps each language-model call within a comfortable context
         length and bounds memory for very long inputs.
         """
-        chunks = _chunk_text(text, max_chars)
+        chunks = chunk_text(text, max_chars)
         results = [
             self.synthesize(chunk, prompt_wav=prompt_wav, max_frames=max_frames, seed=seed)
             for chunk in chunks
@@ -151,21 +152,3 @@ class CantoTTS:
             wav = np.zeros(0, dtype=np.float32)
             codes = np.zeros(0, dtype=np.int64)
         return SynthesisResult(wav=wav, sample_rate=self.sample_rate, codes=codes)
-
-
-def _chunk_text(text: str, max_chars: int) -> list[str]:
-    """Split ``text`` on word boundaries into chunks of at most ``max_chars``."""
-    words = text.split()
-    chunks: list[str] = []
-    current: list[str] = []
-    length = 0
-    for word in words:
-        extra = len(word) + (1 if current else 0)
-        if current and length + extra > max_chars:
-            chunks.append(" ".join(current))
-            current, length = [], 0
-        current.append(word)
-        length += len(word) + (1 if length else 0)
-    if current:
-        chunks.append(" ".join(current))
-    return chunks
