@@ -1,6 +1,6 @@
 import pytest
 
-from canto.text.chunk import chunk_text
+from canto.text.chunk import chunk_text, split_sentences
 
 
 def test_short_text_is_one_chunk():
@@ -33,3 +33,27 @@ def test_whitespace_normalised():
 def test_invalid_max_chars_raises():
     with pytest.raises(ValueError):
         chunk_text("text", max_chars=0)
+
+
+def test_split_sentences_basic():
+    text = "Hello there. How are you? Fine!"
+    assert split_sentences(text) == ["Hello there.", "How are you?", "Fine!"]
+
+
+def test_split_sentences_keeps_terminator():
+    parts = split_sentences("Wait... really? Yes.")
+    assert parts[0] == "Wait..."
+
+
+def test_split_sentences_no_terminator_is_single():
+    assert split_sentences("no terminators here") == ["no terminators here"]
+
+
+def test_split_sentences_empty_and_whitespace():
+    assert split_sentences("") == []
+    assert split_sentences("   ") == []
+
+
+def test_split_sentences_ignores_mid_sentence_dots():
+    # A dot not followed by whitespace does not end the sentence.
+    assert split_sentences("a 1.5x speedup") == ["a 1.5x speedup"]
