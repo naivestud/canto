@@ -75,3 +75,18 @@ def test_frontend_default_style_spells_digits():
 def test_frontend_rejects_unknown_number_style():
     with pytest.raises(ValueError):
         TextFrontend(number_style="ordinal")
+
+
+def test_frontend_keeps_punctuation_by_default():
+    assert TextFrontend().normalize("well, done!") == "well, done!"
+
+
+def test_frontend_can_strip_punctuation():
+    frontend = TextFrontend(keep_punctuation=False)
+    assert frontend.normalize("well, done!") == "well done"
+    assert frontend.normalize("it's fine") == "its fine"
+
+
+def test_frontend_strip_punctuation_combines_with_numbers():
+    frontend = TextFrontend(number_style="cardinal", keep_punctuation=False)
+    assert frontend.normalize("cost: 12 dollars.") == "cost twelve dollars"
