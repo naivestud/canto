@@ -32,3 +32,18 @@ def normalize_peak(x: np.ndarray, target: float = 1.0) -> np.ndarray:
     if current == 0.0:
         return x.copy()
     return x * (target / current)
+
+
+def trim_silence(x: np.ndarray, threshold: float = 1e-3) -> np.ndarray:
+    """Drop leading and trailing samples whose magnitude stays below ``threshold``.
+
+    Useful for tightening voice prompts before cloning. Input that never
+    crosses the threshold comes back as an empty array.
+    """
+    if threshold < 0:
+        raise ValueError(f"threshold must be non-negative, got {threshold}")
+    flat = np.asarray(x, dtype=np.float32).reshape(-1)
+    loud = np.flatnonzero(np.abs(flat) >= threshold)
+    if loud.size == 0:
+        return np.zeros(0, dtype=np.float32)
+    return flat[loud[0] : loud[-1] + 1].copy()
