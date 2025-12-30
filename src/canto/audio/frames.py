@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import numpy as np
+from numpy.lib.stride_tricks import sliding_window_view
 
 
 def hann_window(length: int) -> np.ndarray:
@@ -41,6 +42,7 @@ def frame_signal(
     if count <= 0:
         return np.zeros((0, frame_length), dtype=np.float32)
 
-    offsets = hop_length * np.arange(count)[:, None]
-    indices = offsets + np.arange(frame_length)[None, :]
-    return x[indices]
+    # A strided view avoids materialising the (count, frame_length) index
+    # matrix the gather used; copy so callers own their frames.
+    windows = sliding_window_view(x, frame_length)
+    return np.ascontiguousarray(windows[::hop_length])
