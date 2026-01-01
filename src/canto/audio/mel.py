@@ -6,6 +6,8 @@ reconstruction quality without pulling in a heavy DSP dependency.
 
 from __future__ import annotations
 
+from functools import lru_cache
+
 import numpy as np
 
 from .frames import frame_signal, hann_window
@@ -22,15 +24,10 @@ def mel_to_hz(mel: float | np.ndarray) -> float | np.ndarray:
     return 700.0 * (10.0 ** (mel / 2595.0) - 1.0)
 
 
-def mel_filterbank(
-    n_mels: int,
-    n_fft: int,
-    sample_rate: int,
-    fmin: float = 0.0,
-    fmax: float | None = None,
+@lru_cache(maxsize=8)
+def _mel_filterbank_cached(
+    n_mels: int, n_fft: int, sample_rate: int, fmin: float, fmax: float
 ) -> np.ndarray:
-    """Return a ``(n_mels, n_fft // 2 + 1)`` triangular mel filterbank."""
-    fmax = fmax if fmax is not None else sample_rate / 2.0
     n_bins = n_fft // 2 + 1
 
     mel_min, mel_max = hz_to_mel(fmin), hz_to_mel(fmax)
@@ -47,6 +44,22 @@ def mel_filterbank(
         if right > centre:
             bank[m, centre:right] = (right - np.arange(centre, right)) / (right - centre)
     return bank
+
+
+def mel_filterbank(
+    n_mels: int,
+    n_fft: int,
+    sample_rate: int,
+    fmin: float = 0.0,
+    fmax: float | None = None,
+) -> np.ndarray:
+    """Return a ``(n_mels, n_fft // 2 + 1)`` triangular mel filterbank.
+
+    Filterbanks are expensive to rebuild and cheap to reuse, so results are
+    cached per parameter set; treat the returned array as read-only.
+    """
+    resolved_fmax = fmax if fmax is not None else sample_rate / 2.0
+    return _mel_filterbank_cached(n_mels, n_fft, sample_rate, fmin, resolved_fmax)
 
 
 def log_mel_spectrogram(
