@@ -41,6 +41,21 @@ def top_p_filter(logits: torch.Tensor, p: float) -> torch.Tensor:
     return sorted_logits.scatter(-1, sorted_indices, sorted_logits)
 
 
+def min_p_filter(logits: torch.Tensor, p: float) -> torch.Tensor:
+    """Keep tokens whose probability is at least ``p`` times the top token's.
+
+    Unlike top-p the cutoff adapts to how peaked the distribution is: a
+    confident distribution keeps few tokens, a flat one keeps many. ``p <= 0``
+    disables the filter.
+    """
+    if p <= 0.0:
+        return logits
+    probs = torch.softmax(logits, dim=-1)
+    top = probs.max(dim=-1, keepdim=True).values
+    keep = probs >= p * top
+    return torch.where(keep, logits, torch.full_like(logits, float("-inf")))
+
+
 def apply_temperature(logits: torch.Tensor, temperature: float) -> torch.Tensor:
     """Sharpen (``< 1``) or flatten (``> 1``) the distribution."""
     if temperature <= 0:
