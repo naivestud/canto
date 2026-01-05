@@ -45,3 +45,19 @@ def test_num_frames_exact_hop_multiple():
     frames = frame_signal(x, frame_length=400, hop_length=hop, center=True)
     assert num_frames(n_samples, 400, hop, center=True) == frames.shape[0]
     assert frames.shape[0] == 1 + n_samples // hop
+
+
+def test_num_frames_matches_frame_signal_uncentered():
+    for n_samples in (399, 400, 560, 1_000, 1_600):
+        x = np.zeros(n_samples, dtype=np.float32)
+        frames = frame_signal(x, frame_length=400, hop_length=160, center=False)
+        assert num_frames(n_samples, 400, 160, center=False) == frames.shape[0]
+
+
+def test_frames_own_their_memory():
+    # Callers may hold frames after the source changes, so no shared views.
+    x = np.arange(640, dtype=np.float32)
+    frames = frame_signal(x, frame_length=320, hop_length=160, center=False)
+    snapshot = frames.copy()
+    x[:] = 0.0
+    np.testing.assert_array_equal(frames, snapshot)
