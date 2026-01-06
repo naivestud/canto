@@ -2,6 +2,7 @@ import torch
 
 from canto.lm.sampling import (
     greedy_sample,
+    min_p_filter,
     sample,
     top_k_filter,
     top_k_sample,
@@ -65,3 +66,34 @@ def test_sample_top_p_path_deterministic():
     a = sample(logits, top_p=0.9, generator=g1)
     b = sample(logits, top_p=0.9, generator=g2)
     assert a.tolist() == b.tolist()
+
+
+def test_min_p_filter_keeps_confident_tokens():
+    logits = torch.tensor([[1.0, 5.0, 3.0, 2.0]])
+    filtered = min_p_filter(logits, 0.1)
+    # Softmax gives roughly [0.01, 0.87, 0.12, 0.04]; the top token's
+    # probability is ~0.87, so the 0.1 cutoff is ~0.087.
+    assert filtered[0, 1] == 5.0
+    assert filtered[0, 2] == 3.0
+    assert filtered[0, 0] == float("-inf")
+    assert filtered[0, 3] == float("-inf")
+
+
+def test_min_p_filter_always_keeps_top():
+    logits = torch.randn(3, 20)
+    filtered = min_p_filter(logits, 0.99)
+    top = greedy_sample(logits)
+    for row in range(3):
+        assert filtered[row, top[row]] > float("-inf")
+
+
+def test_min_p_filter_disabled_by_zero():
+    logits = torch.randn(2, 10)
+    assert torch.equal(min_p_filter(logits, 0.0), logits)
+
+
+def test_min_p_adapts_to_flat_distribution():
+    # A uniform distribution keeps every token at any p <= 1.
+    logits = torch.zeros(1, 8)
+    filtered = min_p_filter(logits, 1.0)
+    assert (filtered > float("-inf")).all()
