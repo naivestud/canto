@@ -3,6 +3,7 @@ import torch
 
 from canto.lm.sampling import (
     apply_repetition_penalty,
+    apply_temperature,
     greedy_sample,
     min_p_filter,
     sample,
@@ -121,3 +122,20 @@ def test_repetition_penalty_empty_history_is_noop():
     logits = torch.randn(2, 10)
     empty = torch.zeros(2, 0, dtype=torch.long)
     assert torch.equal(apply_repetition_penalty(logits, empty, 2.0), logits)
+
+
+def test_temperature_sharpens_and_flattens():
+    logits = torch.tensor([[0.0, 2.0]])
+    sharp = apply_temperature(logits, 0.5)
+    flat = apply_temperature(logits, 2.0)
+    # Sharpening widens the gap between logits, flattening narrows it.
+    assert (sharp[0, 1] - sharp[0, 0]) == pytest.approx(4.0)
+    assert (flat[0, 1] - flat[0, 0]) == pytest.approx(1.0)
+
+
+def test_temperature_must_be_positive():
+    logits = torch.randn(1, 5)
+    with pytest.raises(ValueError):
+        apply_temperature(logits, 0.0)
+    with pytest.raises(ValueError):
+        apply_temperature(logits, -1.0)
