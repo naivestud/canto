@@ -2,7 +2,12 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
+
 import torch
+
+# A sampler maps a ``(B, vocab)`` logits tensor to ``(B,)`` token ids.
+Sampler = Callable[[torch.Tensor], torch.Tensor]
 
 
 def greedy_sample(logits: torch.Tensor) -> torch.Tensor:
