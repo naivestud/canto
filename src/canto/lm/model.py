@@ -14,6 +14,7 @@ from torch import nn
 from ..config import LMConfig
 from ..text.vocab import GraphemeVocab
 from .embedding import ScaledEmbedding, SinusoidalPositionalEncoding
+from .sampling import Sampler
 from .transformer import TransformerBackbone
 
 
@@ -99,7 +100,7 @@ class AcousticTokenLM(nn.Module):
         text_ids: torch.Tensor,
         prompt_codes: torch.Tensor | None = None,
         max_new_tokens: int = 200,
-        sampler=None,
+        sampler: Sampler | None = None,
     ) -> torch.Tensor:
         """Sample acoustic codes autoregressively after the text and prompt.
 
