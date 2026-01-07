@@ -1,6 +1,8 @@
+import pytest
 import torch
 
 from canto.lm.sampling import (
+    apply_repetition_penalty,
     greedy_sample,
     min_p_filter,
     sample,
@@ -97,3 +99,25 @@ def test_min_p_adapts_to_flat_distribution():
     logits = torch.zeros(1, 8)
     filtered = min_p_filter(logits, 1.0)
     assert (filtered > float("-inf")).all()
+
+
+def test_repetition_penalty_downweights_previous_tokens():
+    logits = torch.tensor([[1.0, 2.0, -1.0]])
+    previous = torch.tensor([[0, 2]])
+    penalised = apply_repetition_penalty(logits, previous, penalty=2.0)
+    # Positive logits are divided, negative ones multiplied, others untouched.
+    assert penalised[0, 0] == pytest.approx(0.5)
+    assert penalised[0, 1] == pytest.approx(2.0)
+    assert penalised[0, 2] == pytest.approx(-2.0)
+
+
+def test_repetition_penalty_one_is_noop():
+    logits = torch.randn(2, 10)
+    previous = torch.tensor([[1, 2], [3, 4]])
+    assert torch.equal(apply_repetition_penalty(logits, previous, 1.0), logits)
+
+
+def test_repetition_penalty_empty_history_is_noop():
+    logits = torch.randn(2, 10)
+    empty = torch.zeros(2, 0, dtype=torch.long)
+    assert torch.equal(apply_repetition_penalty(logits, empty, 2.0), logits)
