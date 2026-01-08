@@ -13,6 +13,27 @@ def causal_mask(length: int, device: torch.device) -> torch.Tensor:
     return torch.triu(torch.ones(length, length, dtype=torch.bool, device=device), diagonal=1)
 
 
+_MASK_CACHE_LIMIT = 64
+_mask_cache: dict[tuple[int, torch.device], torch.Tensor] = {}
+
+
+def cached_causal_mask(length: int, device: torch.device) -> torch.Tensor:
+    """A shared :func:`causal_mask`, memoised per ``(length, device)``.
+
+    Generation rebuilds the mask every step even though the shape rarely
+    changes, so caching removes that allocation from the hot loop. The cache
+    is cleared wholesale once it grows past a small limit.
+    """
+    key = (length, device)
+    mask = _mask_cache.get(key)
+    if mask is None:
+        if len(_mask_cache) >= _MASK_CACHE_LIMIT:
+            _mask_cache.clear()
+        mask = causal_mask(length, device)
+        _mask_cache[key] = mask
+    return mask
+
+
 class CausalSelfAttention(nn.Module):
     """Standard multi-head attention restricted to past positions.
 
@@ -41,7 +62,7 @@ class CausalSelfAttention(nn.Module):
         q, k, v = qkv.permute(2, 0, 3, 1, 4).unbind(0)
 
         scores = (q @ k.transpose(-2, -1)) / math.sqrt(self.head_dim)
-        scores = scores.masked_fill(causal_mask(length, x.device), float("-inf"))
+        scores = scores.masked_fill(cached_causal_mask(length, x.device), float("-inf"))
         if key_padding_mask is not None:
             # key_padding_mask: (B, length), True where the position is padding.
             pad_mask = key_padding_mask[:, None, None, :]
