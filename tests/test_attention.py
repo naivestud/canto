@@ -1,6 +1,6 @@
 import torch
 
-from canto.lm.attention import CausalSelfAttention
+from canto.lm.attention import CausalSelfAttention, cached_causal_mask, causal_mask
 
 
 def test_output_shape():
@@ -35,3 +35,25 @@ def test_invalid_heads_raise():
     except ValueError:
         return
     raise AssertionError("expected ValueError for indivisible heads")
+
+
+def test_cached_mask_matches_fresh_mask():
+    device = torch.device("cpu")
+    cached = cached_causal_mask(16, device)
+    fresh = causal_mask(16, device)
+    assert torch.equal(cached, fresh)
+
+
+def test_cached_mask_is_reused():
+    device = torch.device("cpu")
+    first = cached_causal_mask(32, device)
+    second = cached_causal_mask(32, device)
+    assert first is second
+
+
+def test_cached_mask_is_upper_triangular():
+    mask = cached_causal_mask(5, torch.device("cpu"))
+    # Position t must not attend to positions > t.
+    assert mask[0, 1] and mask[0, 4]
+    assert not mask[1, 0]
+    assert not mask[4, 4]
