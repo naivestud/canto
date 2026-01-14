@@ -34,6 +34,10 @@ class SinusoidalPositionalEncoding(nn.Module):
         table[:, 1::2] = torch.cos(positions * div[: table[:, 1::2].shape[1]])
         self.register_buffer("table", table.unsqueeze(0))
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """Add positions to ``x`` of shape ``(B, T, dim)``."""
-        return x + self.table[:, : x.shape[1], :]
+    def forward(self, x: torch.Tensor, offset: int = 0) -> torch.Tensor:
+        """Add positions to ``x`` of shape ``(B, T, dim)``.
+
+        ``offset`` shifts the position indices, which cached generation needs
+        when only the newest tokens pass through the model.
+        """
+        return x + self.table[:, offset : offset + x.shape[1], :]

@@ -7,6 +7,7 @@ from torch import nn
 
 from .attention import CausalSelfAttention
 from .feedforward import FeedForward
+from .kv_cache import KVCache
 
 
 class TransformerBlock(nn.Module):
@@ -19,8 +20,19 @@ class TransformerBlock(nn.Module):
         self.ln2 = nn.LayerNorm(dim)
         self.ff = FeedForward(dim, dropout)
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        x = x + self.attn(self.ln1(x))
+    def forward(
+        self,
+        x: torch.Tensor,
+        key_padding_mask: torch.Tensor | None = None,
+        kv_cache: KVCache | None = None,
+        layer_index: int = 0,
+    ) -> torch.Tensor:
+        x = x + self.attn(
+            self.ln1(x),
+            key_padding_mask=key_padding_mask,
+            kv_cache=kv_cache,
+            layer_index=layer_index,
+        )
         x = x + self.ff(self.ln2(x))
         return x
 
@@ -35,7 +47,17 @@ class TransformerBackbone(nn.Module):
         )
         self.ln_f = nn.LayerNorm(dim)
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        for block in self.blocks:
-            x = block(x)
+    def forward(
+        self,
+        x: torch.Tensor,
+        key_padding_mask: torch.Tensor | None = None,
+        kv_cache: KVCache | None = None,
+    ) -> torch.Tensor:
+        for index, block in enumerate(self.blocks):
+            x = block(
+                x,
+                key_padding_mask=key_padding_mask,
+                kv_cache=kv_cache,
+                layer_index=index,
+            )
         return self.ln_f(x)

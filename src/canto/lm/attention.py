@@ -7,10 +7,20 @@ import math
 import torch
 from torch import nn
 
+from .kv_cache import KVCache
 
-def causal_mask(length: int, device: torch.device) -> torch.Tensor:
-    """Upper-triangular boolean mask; True marks positions that must not attend."""
-    return torch.triu(torch.ones(length, length, dtype=torch.bool, device=device), diagonal=1)
+
+def causal_mask(length: int, device: torch.device, cached_len: int = 0) -> torch.Tensor:
+    """Boolean mask over keys; True marks positions that must not attend.
+
+    ``cached_len`` accounts for positions already held in a key-value cache:
+    query ``i`` (absolute position ``cached_len + i``) may attend to every
+    position up to and including its own. With no cache this reduces to the
+    usual upper-triangular mask.
+    """
+    rows = torch.arange(length, device=device)[:, None]
+    cols = torch.arange(cached_len + length, device=device)[None, :]
+    return cols > cached_len + rows
 
 
 _MASK_CACHE_LIMIT = 64
@@ -18,7 +28,7 @@ _mask_cache: dict[tuple[int, torch.device], torch.Tensor] = {}
 
 
 def cached_causal_mask(length: int, device: torch.device) -> torch.Tensor:
-    """A shared :func:`causal_mask`, memoised per ``(length, device)``.
+    """A shared square :func:`causal_mask`, memoised per ``(length, device)``.
 
     Generation rebuilds the mask every step even though the shape rarely
     changes, so caching removes that allocation from the hot loop. The cache
@@ -39,7 +49,8 @@ class CausalSelfAttention(nn.Module):
 
     The upper triangle of the attention matrix is masked so position ``t`` can
     only attend to positions ``<= t``, which is what autoregressive generation
-    requires.
+    requires. Pass a :class:`KVCache` to reuse keys and values computed for
+    earlier positions instead of recomputing them.
     """
 
     def __init__(self, dim: int, num_heads: int, dropout: float = 0.0) -> None:
@@ -54,15 +65,28 @@ class CausalSelfAttention(nn.Module):
         self.resid_drop = nn.Dropout(dropout)
 
     def forward(
-        self, x: torch.Tensor, key_padding_mask: torch.Tensor | None = None
+        self,
+        x: torch.Tensor,
+        key_padding_mask: torch.Tensor | None = None,
+        kv_cache: KVCache | None = None,
+        layer_index: int = 0,
     ) -> torch.Tensor:
         batch, length, dim = x.shape
         qkv = self.qkv(x)
         qkv = qkv.reshape(batch, length, 3, self.num_heads, self.head_dim)
         q, k, v = qkv.permute(2, 0, 3, 1, 4).unbind(0)
 
+        cached_len = 0
+        if kv_cache is not None:
+            cached_len = kv_cache.length
+            k, v = kv_cache.append(layer_index, k, v)
+
         scores = (q @ k.transpose(-2, -1)) / math.sqrt(self.head_dim)
-        scores = scores.masked_fill(cached_causal_mask(length, x.device), float("-inf"))
+        if cached_len == 0:
+            mask = cached_causal_mask(length, x.device)
+        else:
+            mask = causal_mask(length, x.device, cached_len)
+        scores = scores.masked_fill(mask, float("-inf"))
         if key_padding_mask is not None:
             # key_padding_mask: (B, length), True where the position is padding.
             pad_mask = key_padding_mask[:, None, None, :]
