@@ -101,6 +101,7 @@ class AcousticTokenLM(nn.Module):
         prompt_codes: torch.Tensor | None = None,
         max_new_tokens: int = 200,
         sampler: Sampler | None = None,
+        use_cache: bool = True,
     ) -> torch.Tensor:
         """Sample acoustic codes autoregressively after the text and prompt.
 
@@ -108,6 +109,11 @@ class AcousticTokenLM(nn.Module):
         it defaults to greedy decoding. Returns the newly generated codec codes
         (prompt excluded) as a ``(B, L)`` long tensor. Generation stops for a
         sequence when it emits ``audio_eos``.
+
+        Decoding keeps a key-value cache so each step only processes the
+        newest token. Pass ``use_cache=False`` to recompute the full context
+        window at every step instead (slower, but handy for debugging); the
+        two paths agree while the sequence fits in ``config.context``.
         """
         from .sampling import greedy_sample
 
@@ -117,31 +123,82 @@ class AcousticTokenLM(nn.Module):
         was_training = self.training
         self.eval()
         try:
-            device = text_ids.device
-            ids = self.pack_inputs(text_ids, prompt_codes, None)
-            generated: list[torch.Tensor] = []
-
-            for _ in range(max_new_tokens):
-                context = ids[:, -self.config.context :]
-                x = self.token_embedding(context)
-                x = self.pos_encoding(x)
-                logits = self.head(self.backbone(x))[:, -1, :]
-                # Only acoustic tokens (and the end marker) are valid here.
-                allowed = torch.full_like(logits, float("-inf"))
-                allowed[:, self.audio_offset : self.audio_offset + self.config.codebook_size] = 0.0
-                allowed[:, self.audio_eos_id] = 0.0
-                logits = logits + allowed
-                next_id = sampler(logits)
-                # Stop as soon as any sequence emits the end-of-audio marker.
-                if bool((next_id == self.audio_eos_id).any()):
-                    break
-                generated.append(next_id)
-                ids = torch.cat([ids, next_id[:, None]], dim=1)
-
-            if not generated:
-                return torch.zeros(ids.shape[0], 0, dtype=torch.long, device=device)
-            stacked = torch.stack(generated, dim=1)
-            return self.lm_to_audio(stacked)
+            if use_cache:
+                return self._generate_cached(text_ids, prompt_codes, max_new_tokens, sampler)
+            return self._generate_uncached(text_ids, prompt_codes, max_new_tokens, sampler)
         finally:
             if was_training:
                 self.train()
+
+    def _allowed_logits(self, logits: torch.Tensor) -> torch.Tensor:
+        """Mask every id outside the acoustic range so only it can be sampled."""
+        allowed = torch.full_like(logits, float("-inf"))
+        allowed[:, self.audio_offset : self.audio_offset + self.config.codebook_size] = 0.0
+        allowed[:, self.audio_eos_id] = 0.0
+        return logits + allowed
+
+    def _generate_uncached(
+        self,
+        text_ids: torch.Tensor,
+        prompt_codes: torch.Tensor | None,
+        max_new_tokens: int,
+        sampler: Sampler,
+    ) -> torch.Tensor:
+        device = text_ids.device
+        ids = self.pack_inputs(text_ids, prompt_codes, None)
+        generated: list[torch.Tensor] = []
+
+        for _ in range(max_new_tokens):
+            context = ids[:, -self.config.context :]
+            x = self.token_embedding(context)
+            x = self.pos_encoding(x)
+            logits = self.head(self.backbone(x))[:, -1, :]
+            next_id = sampler(self._allowed_logits(logits))
+            # Stop as soon as any sequence emits the end-of-audio marker.
+            if bool((next_id == self.audio_eos_id).any()):
+                break
+            generated.append(next_id)
+            ids = torch.cat([ids, next_id[:, None]], dim=1)
+
+        if not generated:
+            return torch.zeros(ids.shape[0], 0, dtype=torch.long, device=device)
+        return self.lm_to_audio(torch.stack(generated, dim=1))
+
+    def _generate_cached(
+        self,
+        text_ids: torch.Tensor,
+        prompt_codes: torch.Tensor | None,
+        max_new_tokens: int,
+        sampler: Sampler,
+    ) -> torch.Tensor:
+        from .kv_cache import KVCache
+
+        device = text_ids.device
+        ids = self.pack_inputs(text_ids, prompt_codes, None)
+        # Drop any overflow so the prefill fits the context window.
+        overflow = max(0, ids.shape[1] - self.config.context)
+        ids = ids[:, overflow:]
+
+        cache = KVCache(self.config.num_layers)
+        x = self.token_embedding(ids)
+        x = self.pos_encoding(x, offset=overflow)
+        logits = self.head(self.backbone(x, kv_cache=cache))[:, -1, :]
+        position = overflow + ids.shape[1]
+
+        generated: list[torch.Tensor] = []
+        for _ in range(max_new_tokens):
+            next_id = sampler(self._allowed_logits(logits))
+            # Stop as soon as any sequence emits the end-of-audio marker.
+            if bool((next_id == self.audio_eos_id).any()):
+                break
+            generated.append(next_id)
+            # Trim history so the cache never exceeds the context window.
+            cache.crop(self.config.context - 1)
+            x = self.token_embedding(next_id[:, None])
+            x = self.pos_encoding(x, offset=position)
+            logits = self.head(self.backbone(x, kv_cache=cache))[:, -1, :]
+            position += 1
+
+        if not generated:
+            return torch.zeros(text_ids.shape[0], 0, dtype=torch.long, device=device)
+        return self.lm_to_audio(torch.stack(generated, dim=1))
