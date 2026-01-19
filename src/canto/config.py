@@ -98,6 +98,68 @@ class CantoConfig:
         if self.vocoder.upsample_factor != self.codec.hop_length:
             raise ConfigError("vocoder upsample_factor must equal the codec hop length")
 
+    def to_dict(self) -> dict:
+        """A JSON-friendly dict mirroring the nested dataclass fields.
+
+        Tuples become lists so the result can be written with :mod:`json`
+        unchanged. :meth:`from_dict` is the inverse.
+        """
+        return {
+            "sample_rate": self.sample_rate,
+            "codec": {
+                "dim": self.codec.dim,
+                "enc_strides": list(self.codec.enc_strides),
+                "dec_strides": list(self.codec.dec_strides),
+                "num_quantizers": self.codec.num_quantizers,
+                "codebook_size": self.codec.codebook_size,
+                "codebook_dim": self.codec.codebook_dim,
+            },
+            "lm": {
+                "dim": self.lm.dim,
+                "num_layers": self.lm.num_layers,
+                "num_heads": self.lm.num_heads,
+                "context": self.lm.context,
+                "dropout": self.lm.dropout,
+                "codebook_size": self.lm.codebook_size,
+            },
+            "vocoder": {
+                "embed_dim": self.vocoder.embed_dim,
+                "channels": self.vocoder.channels,
+                "upsample_rates": list(self.vocoder.upsample_rates),
+                "refinements": list(self.vocoder.refinements),
+            },
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> CantoConfig:
+        """Inverse of :meth:`to_dict`.
+
+        Tolerates the list form of tuple fields (as produced by JSON) and
+        restores them as tuples. Raises :class:`ConfigError` on missing or
+        malformed sections rather than the raw ``KeyError``/``TypeError``.
+        """
+        try:
+            codec = CodecConfig(
+                **{
+                    **data["codec"],
+                    "enc_strides": tuple(data["codec"]["enc_strides"]),
+                    "dec_strides": tuple(data["codec"]["dec_strides"]),
+                }
+            )
+            lm = LMConfig(**data["lm"])
+            vocoder = VocoderConfig(
+                **{
+                    **data["vocoder"],
+                    "upsample_rates": tuple(data["vocoder"]["upsample_rates"]),
+                    "refinements": tuple(data["vocoder"]["refinements"]),
+                }
+            )
+        except (KeyError, TypeError) as exc:
+            raise ConfigError(f"malformed config dict: {exc}") from exc
+        return cls(
+            sample_rate=data.get("sample_rate", SAMPLE_RATE), codec=codec, lm=lm, vocoder=vocoder
+        )
+
     @classmethod
     def tiny(cls) -> CantoConfig:
         """A minimal configuration for tests and quick local runs."""
