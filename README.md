@@ -1,5 +1,10 @@
 # canto
 
+[![CI](https://github.com/naivestud/canto/actions/workflows/ci.yml/badge.svg)](https://github.com/naivestud/canto/actions/workflows/ci.yml)
+[![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
+
 Zero-shot text-to-speech over a neural audio codec.
 
 canto models speech as a sequence of discrete acoustic tokens. A neural audio
