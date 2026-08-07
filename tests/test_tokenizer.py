@@ -48,3 +48,11 @@ def test_1d_codes_accepted_by_decode():
 def test_frame_rate_property():
     tokenizer = tiny_tokenizer()
     assert tokenizer.frame_rate == tokenizer.sample_rate / 8
+
+
+def test_encode_is_deterministic_across_calls():
+    tokenizer = tiny_tokenizer()
+    wav = np.random.default_rng(3).standard_normal(8 * 20).astype(np.float32)
+    a = tokenizer.encode(wav)
+    b = tokenizer.encode(wav)
+    np.testing.assert_array_equal(a, b)
