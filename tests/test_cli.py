@@ -52,3 +52,24 @@ def test_clone_writes_wav(tmp_path):
 def test_unknown_command_returns_zero_and_help(capsys):
     # With no subcommand we print help and exit cleanly.
     assert main([]) == 0
+
+
+def test_missing_input_file_returns_nonzero(tmp_path, capsys):
+    rc = main(["encode", "--wav", str(tmp_path / "nope.wav"), "--out", str(tmp_path / "c.npy")])
+    assert rc == 2
+    assert "canto:" in capsys.readouterr().err
+
+
+def test_missing_prompt_returns_nonzero(tmp_path):
+    rc = main(
+        [
+            "clone",
+            "--prompt",
+            str(tmp_path / "missing.wav"),
+            "--text",
+            "hi",
+            "--out",
+            str(tmp_path / "o.wav"),
+        ]
+    )
+    assert rc == 2
