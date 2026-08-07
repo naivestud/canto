@@ -31,11 +31,16 @@ def _check_sample_rate(requested: int | None, model_rate: int) -> int | None:
     return None
 
 
-def cmd_synthesize(args: argparse.Namespace) -> int:
+def _prepare_tts(args: argparse.Namespace):
+    """Build the pipeline and validate the requested sample rate."""
     from .pipeline import CantoTTS
 
     tts = CantoTTS()
-    error = _check_sample_rate(args.sample_rate, tts.sample_rate)
+    return tts, _check_sample_rate(args.sample_rate, tts.sample_rate)
+
+
+def cmd_synthesize(args: argparse.Namespace) -> int:
+    tts, error = _prepare_tts(args)
     if error is not None:
         return error
     result = tts.synthesize(args.text, seed=args.seed, max_frames=args.max_frames)
@@ -46,11 +51,9 @@ def cmd_synthesize(args: argparse.Namespace) -> int:
 
 def cmd_clone(args: argparse.Namespace) -> int:
     from .audio import read_wav
-    from .pipeline import CantoTTS
 
     prompt, sample_rate = read_wav(args.prompt)
-    tts = CantoTTS()
-    error = _check_sample_rate(args.sample_rate, tts.sample_rate)
+    tts, error = _prepare_tts(args)
     if error is not None:
         return error
     if sample_rate != tts.sample_rate:
