@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import math
-
 import numpy as np
 
 
@@ -15,7 +13,10 @@ def hann_window(length: int) -> np.ndarray:
 def num_frames(n_samples: int, frame_length: int, hop_length: int, center: bool = True) -> int:
     """Number of frames ``frame_signal`` will produce for a given input length."""
     if center:
-        return math.ceil(n_samples / hop_length)
+        # Centre padding adds frame_length samples in total, so the count is
+        # 1 + n // hop; note this is not ceil(n / hop), which is one short on
+        # exact multiples of the hop length.
+        return 1 + n_samples // hop_length
     return 1 + (n_samples - frame_length) // hop_length
 
 
