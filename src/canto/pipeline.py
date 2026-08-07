@@ -108,3 +108,42 @@ class CantoTTS:
     ) -> SynthesisResult:
         """Synthesise ``text`` in the voice of ``prompt_wav`` (zero-shot)."""
         return self.synthesize(text, prompt_wav=prompt_wav, max_frames=max_frames, seed=seed)
+
+    def synthesize_chunked(
+        self,
+        text: str,
+        prompt_wav: np.ndarray | None = None,
+        max_chars: int = 80,
+        max_frames: int = 400,
+        seed: int | None = None,
+    ) -> SynthesisResult:
+        """Synthesise long text by splitting it into chunks and concatenating.
+
+        Splitting keeps each language-model call within a comfortable context
+        length and bounds memory for very long inputs.
+        """
+        chunks = _chunk_text(text, max_chars)
+        pieces = [
+            self.synthesize(chunk, prompt_wav=prompt_wav, max_frames=max_frames, seed=seed).wav
+            for chunk in chunks
+        ]
+        wav = np.concatenate(pieces) if pieces else np.zeros(0, dtype=np.float32)
+        return SynthesisResult(wav=wav, sample_rate=self.sample_rate)
+
+
+def _chunk_text(text: str, max_chars: int) -> list[str]:
+    """Split ``text`` on word boundaries into chunks of at most ``max_chars``."""
+    words = text.split()
+    chunks: list[str] = []
+    current: list[str] = []
+    length = 0
+    for word in words:
+        extra = len(word) + (1 if current else 0)
+        if current and length + extra > max_chars:
+            chunks.append(" ".join(current))
+            current, length = [], 0
+        current.append(word)
+        length += len(word) + (1 if length else 0)
+    if current:
+        chunks.append(" ".join(current))
+    return chunks
