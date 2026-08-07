@@ -49,3 +49,25 @@ pre-commit install
 This repo contains architecture and tooling, not pretrained weights. Please do
 not open PRs that add large binary checkpoints; instead, link them from an
 issue or discussion.
+
+## Cutting a release
+
+Maintainers release by tagging; the `Release` workflow builds and publishes the
+tagged version.
+
+1. Update `CHANGELOG.md` — move anything under `Unreleased` into a new version
+   heading and date it.
+2. Bump the version and tag in one step:
+
+   ```bash
+   scripts/release.sh 0.4.0
+   ```
+
+3. Push the branch and the tag:
+
+   ```bash
+   git push origin main v0.4.0
+   ```
+
+The tag triggers `.github/workflows/release.yml`, which builds the sdist and
+wheel and attaches them to a GitHub release.
