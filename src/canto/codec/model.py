@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import math
+
 import torch
 from torch import nn
 
@@ -33,10 +35,15 @@ class AudioCodec(nn.Module):
         )
         self.decoder = Decoder(out_channels=1, dim=config.dim, strides=config.dec_strides)
 
-    def encode(self, wav: torch.Tensor) -> torch.Tensor:
-        """Encode ``(B, 1, T)`` audio into codes ``(B, Q, T')``."""
+    def encode(self, wav: torch.Tensor, num_quantizers: int | None = None) -> torch.Tensor:
+        """Encode ``(B, 1, T)`` audio into codes ``(B, Q, T')``.
+
+        ``num_quantizers`` selects how many codebook levels to keep, trading
+        bandwidth for fidelity; it defaults to every level the codec was built
+        with.
+        """
         latents = self.encoder(wav)
-        return self.quantizer.encode(latents)
+        return self.quantizer.encode(latents, num_quantizers)
 
     def decode_indices(self, indices: torch.Tensor) -> torch.Tensor:
         """Decode codes ``(B, Q, T')`` back into ``(B, 1, T)`` audio."""
@@ -45,6 +52,13 @@ class AudioCodec(nn.Module):
         # The decoder already ends in tanh; clamp defensively so downstream code
         # can rely on the [-1, 1] contract even if the head is swapped out.
         return wav.clamp(-1.0, 1.0)
+
+    def bandwidth_kbps(self, num_quantizers: int | None = None) -> float:
+        """Bit-rate in kbit/s for a given number of codebook levels."""
+        n = self.config.num_quantizers if num_quantizers is None else num_quantizers
+        frame_rate = self.sample_rate / self.hop_length
+        bits_per_frame = n * math.log2(self.config.codebook_size)
+        return frame_rate * bits_per_frame / 1000.0
 
     def forward(self, wav: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """Return ``(reconstruction, indices, loss)`` for a batch of audio."""
