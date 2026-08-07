@@ -129,7 +129,8 @@ class AcousticTokenLM(nn.Module):
                 logits = self.head(self.backbone(x))[:, -1, :]
                 # Only acoustic tokens (and the end marker) are valid here.
                 allowed = torch.full_like(logits, float("-inf"))
-                allowed[:, self.audio_offset : self.audio_eos_id + 1] = 0.0
+                allowed[:, self.audio_offset : self.audio_offset + self.config.codebook_size] = 0.0
+                allowed[:, self.audio_eos_id] = 0.0
                 logits = logits + allowed
                 next_id = sampler(logits)
                 # Stop as soon as any sequence emits the end-of-audio marker.
