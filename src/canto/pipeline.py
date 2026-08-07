@@ -21,6 +21,15 @@ class SynthesisResult:
 
     wav: np.ndarray
     sample_rate: int
+    codes: np.ndarray
+
+    @property
+    def num_frames(self) -> int:
+        return int(self.codes.shape[-1]) if self.codes.size else 0
+
+    @property
+    def duration(self) -> float:
+        return float(self.wav.shape[-1]) / self.sample_rate
 
 
 class CantoTTS:
@@ -97,7 +106,11 @@ class CantoTTS:
                 codes = torch.zeros(1, 1, dtype=torch.long)
             wav = self.vocoder(codes)
 
-        return SynthesisResult(wav=wav[0, 0].cpu().numpy(), sample_rate=self.sample_rate)
+        return SynthesisResult(
+            wav=wav[0, 0].cpu().numpy(),
+            sample_rate=self.sample_rate,
+            codes=codes[0].cpu().numpy(),
+        )
 
     def clone_voice(
         self,
@@ -123,12 +136,17 @@ class CantoTTS:
         length and bounds memory for very long inputs.
         """
         chunks = _chunk_text(text, max_chars)
-        pieces = [
-            self.synthesize(chunk, prompt_wav=prompt_wav, max_frames=max_frames, seed=seed).wav
+        results = [
+            self.synthesize(chunk, prompt_wav=prompt_wav, max_frames=max_frames, seed=seed)
             for chunk in chunks
         ]
-        wav = np.concatenate(pieces) if pieces else np.zeros(0, dtype=np.float32)
-        return SynthesisResult(wav=wav, sample_rate=self.sample_rate)
+        if results:
+            wav = np.concatenate([r.wav for r in results])
+            codes = np.concatenate([r.codes for r in results], axis=-1)
+        else:
+            wav = np.zeros(0, dtype=np.float32)
+            codes = np.zeros(0, dtype=np.int64)
+        return SynthesisResult(wav=wav, sample_rate=self.sample_rate, codes=codes)
 
 
 def _chunk_text(text: str, max_chars: int) -> list[str]:
