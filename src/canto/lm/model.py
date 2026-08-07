@@ -39,6 +39,7 @@ class AcousticTokenLM(nn.Module):
         self.backbone = TransformerBackbone(
             config.dim, config.num_layers, config.num_heads, config.dropout
         )
+        self.head = nn.Linear(config.dim, self.vocab_size, bias=False)
 
     def audio_to_lm(self, codes: torch.Tensor) -> torch.Tensor:
         """Shift codec codebook indices into the LM vocabulary space."""
@@ -74,3 +75,22 @@ class AcousticTokenLM(nn.Module):
             )
             parts.append(audio_eos)
         return torch.cat(parts, dim=1)
+
+    def forward(
+        self,
+        text_ids: torch.Tensor,
+        prompt_codes: torch.Tensor | None = None,
+        target_codes: torch.Tensor | None = None,
+    ) -> torch.Tensor:
+        """Teacher-forced forward returning next-token logits.
+
+        Returns logits of shape ``(B, L - 1, vocab_size)`` aligned so that
+        ``logits[:, t]`` predicts ``seq[:, t + 1]``.
+        """
+        seq = self.pack_inputs(text_ids, prompt_codes, target_codes)
+        inputs = seq[:, :-1]
+        x = self.token_embedding(inputs)
+        x = self.pos_encoding(x)
+        x = self.drop(x)
+        x = self.backbone(x)
+        return self.head(x)
