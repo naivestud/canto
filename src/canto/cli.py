@@ -15,12 +15,29 @@ def _add_synthesis_options(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--out", required=True, help="output wav path")
     parser.add_argument("--seed", type=int, default=None, help="random seed")
     parser.add_argument("--max-frames", type=int, default=400, help="cap on generated frames")
+    parser.add_argument(
+        "--sample-rate",
+        type=int,
+        default=None,
+        help="expected output sample rate (must match the model rate)",
+    )
+
+
+def _check_sample_rate(requested: int | None, model_rate: int) -> int | None:
+    """Return an error code if ``requested`` disagrees with the model rate."""
+    if requested is not None and requested != model_rate:
+        print(f"canto: model runs at {model_rate} Hz, got --sample-rate {requested}", file=sys.stderr)
+        return 2
+    return None
 
 
 def cmd_synthesize(args: argparse.Namespace) -> int:
     from .pipeline import CantoTTS
 
     tts = CantoTTS()
+    error = _check_sample_rate(args.sample_rate, tts.sample_rate)
+    if error is not None:
+        return error
     result = tts.synthesize(args.text, seed=args.seed, max_frames=args.max_frames)
     write_wav(args.out, result.wav, result.sample_rate)
     print(f"wrote {args.out} ({result.duration:.2f}s, {result.num_frames} frames)")
@@ -33,6 +50,9 @@ def cmd_clone(args: argparse.Namespace) -> int:
 
     prompt, sample_rate = read_wav(args.prompt)
     tts = CantoTTS()
+    error = _check_sample_rate(args.sample_rate, tts.sample_rate)
+    if error is not None:
+        return error
     if sample_rate != tts.sample_rate:
         print(f"warning: prompt rate {sample_rate} != model rate {tts.sample_rate}", file=sys.stderr)
     result = tts.clone_voice(prompt, args.text, seed=args.seed, max_frames=args.max_frames)
