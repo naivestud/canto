@@ -61,18 +61,42 @@ class LMConfig:
 
 
 @dataclass
+class VocoderConfig:
+    """Geometry of the token-to-waveform vocoder."""
+
+    embed_dim: int = 32
+    channels: int = 64
+    upsample_rates: tuple[int, ...] = (8, 5, 4, 2)
+    refinements: tuple[int, ...] = (1, 3, 5)
+
+    @property
+    def upsample_factor(self) -> int:
+        return math.prod(self.upsample_rates)
+
+    def validate(self) -> None:
+        if self.channels <= 0 or self.embed_dim <= 0:
+            raise ConfigError("vocoder channels and embed_dim must be positive")
+        if self.upsample_factor < 1:
+            raise ConfigError("vocoder upsample_factor must be >= 1")
+
+
+@dataclass
 class CantoConfig:
     """Top-level configuration bundling every component."""
 
     sample_rate: int = SAMPLE_RATE
     codec: CodecConfig = field(default_factory=CodecConfig)
     lm: LMConfig = field(default_factory=LMConfig)
+    vocoder: VocoderConfig = field(default_factory=VocoderConfig)
 
     def validate(self) -> None:
         self.codec.validate()
         self.lm.validate()
+        self.vocoder.validate()
         if self.lm.codebook_size != self.codec.codebook_size:
             raise ConfigError("lm and codec codebook_size must match")
+        if self.vocoder.upsample_factor != self.codec.hop_length:
+            raise ConfigError("vocoder upsample_factor must equal the codec hop length")
 
     @classmethod
     def tiny(cls) -> CantoConfig:
@@ -86,4 +110,5 @@ class CantoConfig:
             codebook_dim=8,
         )
         lm = LMConfig(dim=32, num_layers=2, num_heads=2, context=128, codebook_size=64)
-        return cls(codec=codec, lm=lm)
+        vocoder = VocoderConfig(embed_dim=8, channels=16, upsample_rates=(4, 2))
+        return cls(codec=codec, lm=lm, vocoder=vocoder)
