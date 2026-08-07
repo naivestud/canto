@@ -1,8 +1,10 @@
 from pathlib import Path
 
 import numpy as np
+import pytest
 
 from canto.audio import read_wav
+from canto.errors import EmptyTextError
 from canto.pipeline import CantoTTS
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -48,3 +50,11 @@ def test_clone_voice_deterministic():
     a = tts.clone_voice(prompt, "hi", seed=11, max_frames=8)
     b = tts.clone_voice(prompt, "hi", seed=11, max_frames=8)
     np.testing.assert_array_equal(a.wav, b.wav)
+
+
+def test_empty_text_raises():
+    tts = CantoTTS()
+    with pytest.raises(EmptyTextError):
+        tts.synthesize("   ")
+    with pytest.raises(EmptyTextError):
+        tts.synthesize("")
