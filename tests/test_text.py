@@ -12,7 +12,7 @@ def test_roundtrip_ascii():
 def test_unknown_maps_to_unk():
     vocab = GraphemeVocab()
     # An emoji is outside printable ASCII.
-    ids = vocab.encode("\U0001F600")
+    ids = vocab.encode("\U0001f600")
     assert ids == [vocab.unk_id]
 
 

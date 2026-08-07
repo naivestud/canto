@@ -18,9 +18,9 @@ class AudioTokenizer:
 
     def __init__(self, codec: AudioCodec, device: str | torch.device | None = None) -> None:
         self.codec = codec
-        self.device = torch.device(device) if device is not None else next(
-            codec.parameters()
-        ).device
+        self.device = (
+            torch.device(device) if device is not None else next(codec.parameters()).device
+        )
         self.codec.to(self.device)
         self.codec.eval()
 

@@ -26,7 +26,9 @@ def _add_synthesis_options(parser: argparse.ArgumentParser) -> None:
 def _check_sample_rate(requested: int | None, model_rate: int) -> int | None:
     """Return an error code if ``requested`` disagrees with the model rate."""
     if requested is not None and requested != model_rate:
-        print(f"canto: model runs at {model_rate} Hz, got --sample-rate {requested}", file=sys.stderr)
+        print(
+            f"canto: model runs at {model_rate} Hz, got --sample-rate {requested}", file=sys.stderr
+        )
         return 2
     return None
 
@@ -57,7 +59,9 @@ def cmd_clone(args: argparse.Namespace) -> int:
     if error is not None:
         return error
     if sample_rate != tts.sample_rate:
-        print(f"warning: prompt rate {sample_rate} != model rate {tts.sample_rate}", file=sys.stderr)
+        print(
+            f"warning: prompt rate {sample_rate} != model rate {tts.sample_rate}", file=sys.stderr
+        )
     result = tts.clone_voice(prompt, args.text, seed=args.seed, max_frames=args.max_frames)
     write_wav(args.out, result.wav, result.sample_rate)
     print(f"wrote {args.out} ({result.duration:.2f}s, {result.num_frames} frames)")

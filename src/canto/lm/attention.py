@@ -32,7 +32,9 @@ class CausalSelfAttention(nn.Module):
         self.attn_drop = nn.Dropout(dropout)
         self.resid_drop = nn.Dropout(dropout)
 
-    def forward(self, x: torch.Tensor, key_padding_mask: torch.Tensor | None = None) -> torch.Tensor:
+    def forward(
+        self, x: torch.Tensor, key_padding_mask: torch.Tensor | None = None
+    ) -> torch.Tensor:
         batch, length, dim = x.shape
         qkv = self.qkv(x)
         qkv = qkv.reshape(batch, length, 3, self.num_heads, self.head_dim)
