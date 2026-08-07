@@ -1,0 +1,5 @@
+# Default owners for everything in the repo
+* @naivestud
+
+# CI and release workflows need careful review
+/.github/workflows/ @naivestud
