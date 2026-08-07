@@ -40,6 +40,38 @@ def cmd_clone(args: argparse.Namespace) -> int:
     return 0
 
 
+def _build_tokenizer():
+    from .codec import AudioCodec
+    from .config import CantoConfig
+    from .tokens import AudioTokenizer
+
+    config = CantoConfig.tiny()
+    return AudioTokenizer(AudioCodec(config.codec))
+
+
+def cmd_encode(args: argparse.Namespace) -> int:
+    import numpy as np
+
+    from .audio import read_wav
+
+    wav, _ = read_wav(args.wav)
+    codes = _build_tokenizer().encode(wav)
+    np.save(args.out, codes)
+    print(f"wrote {args.out} with codes of shape {codes.shape}")
+    return 0
+
+
+def cmd_decode(args: argparse.Namespace) -> int:
+    import numpy as np
+
+    codes = np.load(args.tokens)
+    tokenizer = _build_tokenizer()
+    wav = tokenizer.decode(codes)
+    write_wav(args.out, wav, tokenizer.sample_rate)
+    print(f"wrote {args.out} ({len(wav)} samples)")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="canto",
@@ -56,6 +88,14 @@ def build_parser() -> argparse.ArgumentParser:
     clone.add_argument("--prompt", required=True, help="reference wav to clone")
     _add_synthesis_options(clone)
 
+    encode = sub.add_parser("encode", help="tokenise a wav into discrete codes")
+    encode.add_argument("--wav", required=True, help="input wav path")
+    encode.add_argument("--out", required=True, help="output .npy path for codes")
+
+    decode = sub.add_parser("decode", help="render codes back into a wav")
+    decode.add_argument("--tokens", required=True, help="input .npy codes path")
+    decode.add_argument("--out", required=True, help="output wav path")
+
     return parser
 
 
@@ -70,6 +110,10 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_synthesize(args)
     if args.command == "clone":
         return cmd_clone(args)
+    if args.command == "encode":
+        return cmd_encode(args)
+    if args.command == "decode":
+        return cmd_decode(args)
 
     parser.print_help()
     return 0
