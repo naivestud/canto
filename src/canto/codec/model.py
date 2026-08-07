@@ -41,7 +41,10 @@ class AudioCodec(nn.Module):
     def decode_indices(self, indices: torch.Tensor) -> torch.Tensor:
         """Decode codes ``(B, Q, T')`` back into ``(B, 1, T)`` audio."""
         quantized = self.quantizer.decode_indices(indices)
-        return self.decoder(quantized)
+        wav = self.decoder(quantized)
+        # The decoder already ends in tanh; clamp defensively so downstream code
+        # can rely on the [-1, 1] contract even if the head is swapped out.
+        return wav.clamp(-1.0, 1.0)
 
     def forward(self, wav: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """Return ``(reconstruction, indices, loss)`` for a batch of audio."""
