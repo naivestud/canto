@@ -27,7 +27,7 @@ class CausalSelfAttention(nn.Module):
         self.attn_drop = nn.Dropout(dropout)
         self.resid_drop = nn.Dropout(dropout)
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(self, x: torch.Tensor, key_padding_mask: torch.Tensor | None = None) -> torch.Tensor:
         batch, length, dim = x.shape
         qkv = self.qkv(x)
         qkv = qkv.reshape(batch, length, 3, self.num_heads, self.head_dim)
@@ -38,6 +38,10 @@ class CausalSelfAttention(nn.Module):
             torch.ones(length, length, dtype=torch.bool, device=x.device), diagonal=1
         )
         scores = scores.masked_fill(causal_mask, float("-inf"))
+        if key_padding_mask is not None:
+            # key_padding_mask: (B, length), True where the position is padding.
+            pad_mask = key_padding_mask[:, None, None, :]
+            scores = scores.masked_fill(pad_mask, float("-inf"))
 
         weights = torch.softmax(scores, dim=-1)
         weights = self.attn_drop(weights)
