@@ -23,6 +23,8 @@ class ScaledEmbedding(nn.Module):
 class SinusoidalPositionalEncoding(nn.Module):
     """Fixed sinusoidal positions added to the token embeddings."""
 
+    table: torch.Tensor
+
     def __init__(self, dim: int, max_len: int = 2048) -> None:
         super().__init__()
         positions = torch.arange(max_len, dtype=torch.float32).unsqueeze(1)

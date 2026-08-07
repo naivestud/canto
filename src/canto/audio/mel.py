@@ -18,7 +18,7 @@ def hz_to_mel(hz: float) -> float:
     return 2595.0 * float(np.log10(1.0 + hz / 700.0))
 
 
-def mel_to_hz(mel: float) -> float:
+def mel_to_hz(mel: float | np.ndarray) -> float | np.ndarray:
     return 700.0 * (10.0 ** (mel / 2595.0) - 1.0)
 
 
@@ -83,7 +83,11 @@ def spectral_distance(
     scored even if padding shifts the output by a few samples.
     """
     n = min(a.shape[-1], b.shape[-1])
-    spec_a = log_mel_spectrogram(a[..., :n], sample_rate, n_fft=n_fft, hop_length=hop_length, n_mels=n_mels)
-    spec_b = log_mel_spectrogram(b[..., :n], sample_rate, n_fft=n_fft, hop_length=hop_length, n_mels=n_mels)
+    spec_a = log_mel_spectrogram(
+        a[..., :n], sample_rate, n_fft=n_fft, hop_length=hop_length, n_mels=n_mels
+    )
+    spec_b = log_mel_spectrogram(
+        b[..., :n], sample_rate, n_fft=n_fft, hop_length=hop_length, n_mels=n_mels
+    )
     t = min(spec_a.shape[1], spec_b.shape[1])
     return float(np.mean(np.abs(spec_a[:, :t] - spec_b[:, :t])))
