@@ -30,3 +30,10 @@ def test_silence_hits_mel_floor():
     spec = log_mel_spectrogram(x, 16_000, n_mels=40)
     # log(floor) is a large negative constant; silence should sit at it.
     assert np.allclose(spec, np.log(1e-10), atol=1e-4)
+
+
+def test_tiny_signal_stays_finite():
+    # Very small energies must be clamped to the floor, never log(0) = -inf.
+    x = np.full(4_000, 1e-12, dtype=np.float32)
+    spec = log_mel_spectrogram(x, 16_000, n_mels=40)
+    assert np.isfinite(spec).all()
