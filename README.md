@@ -13,6 +13,16 @@ generates them from text plus a short voice prompt, and a neural vocoder
 renders them into a waveform. Cloning a voice is just priming the model with a
 few seconds of reference audio.
 
+## How it works
+
+```
+text ──▶ acoustic-token LM ──▶ tokens ──▶ vocoder ──▶ waveform
+prompt ─┘        ▲
+                 └── the audio codec turns the prompt into tokens
+```
+
+The [architecture doc](docs/architecture.md) walks through each stage.
+
 > **Status:** the architecture, data flow, CLI, and test-suite are complete.
 > No pretrained weights ship with the repo yet, so out-of-the-box output is
 > noise-like — the plumbing is the point for now. See the
