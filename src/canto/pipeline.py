@@ -59,6 +59,15 @@ class CantoTTS:
         """Render codes back into a waveform with the codec decoder."""
         return self.tokenizer.decode(codes)
 
+    def _prompt_codes(self, prompt_wav: np.ndarray) -> torch.Tensor:
+        """Tokenise a reference waveform and keep the first codebook level.
+
+        The first level carries the coarse acoustic content that steers the
+        language model towards the prompt's voice.
+        """
+        codes = self.tokenizer.encode(prompt_wav)[0]
+        return torch.tensor(codes, dtype=torch.long)[None, :]
+
     def synthesize(
         self,
         text: str,
@@ -79,8 +88,7 @@ class CantoTTS:
 
         prompt_codes = None
         if prompt_wav is not None:
-            codes = self.tokenizer.encode(prompt_wav)[0]
-            prompt_codes = torch.tensor(codes, dtype=torch.long)[None, :]
+            prompt_codes = self._prompt_codes(prompt_wav)
 
         with torch.no_grad():
             codes = self.lm.generate(text_tensor, prompt_codes, max_new_tokens=max_frames)
