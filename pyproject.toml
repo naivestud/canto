@@ -23,7 +23,7 @@ classifiers = [
     "Topic :: Multimedia :: Sound/Audio :: Speech",
 ]
 dependencies = [
-    "numpy>=1.24",
+    "numpy>=2.2.6",
     "torch>=2.1",
 ]
 
